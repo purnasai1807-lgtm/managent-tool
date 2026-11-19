@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TaskFlow — Collaborative Project Management</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <section id="auth-screen" class="auth-screen">
+    <div class="auth-card">
+      <div class="brand" style="color:var(--ink);margin-bottom:0.5rem;">
+        <span class="brand-icon" style="color:#fff;">T</span>
+        <span>TaskFlow Workspace</span>
+      </div>
+      <p style="margin:0 0 1.25rem;color:var(--ink-muted);font-size:0.93rem;">
+        Collaborative Kanban boards, task assignments, discussions, and real-time WebSocket updates.
+      </p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;margin-bottom:1rem;">
+        <button type="button" id="auth-tab-login" class="btn btn-primary btn-sm">Sign In</button>
+        <button type="button" id="auth-tab-register" class="btn btn-outline btn-sm">Create Account</button>
+      </div>
+      <form id="auth-form" style="display:grid;gap:0.75rem;">
+        <input id="auth-name" class="input" placeholder="Full Name (e.g. Jordan Kim)" style="display:none;" />
+        <input id="auth-username" class="input" placeholder="Username (e.g. jordan_k)" style="display:none;" />
+        <input id="auth-role" class="input" placeholder="Role Title (e.g. Product Engineer)" style="display:none;" />
+        <input id="auth-email" class="input" required placeholder="Email or Username" />
+        <input id="auth-password" class="input" type="password" required minlength="6" placeholder="Password" />
+        <p id="auth-error" style="display:none;margin:0;color:var(--danger);font-size:0.86rem;"></p>
+        <button type="submit" id="auth-submit" class="btn btn-primary">Sign In</button>
+        <button type="button" id="demo-login-btn" class="btn btn-outline btn-sm">Quick Demo Sign-In (@alex)</button>
+      </form>
+    </div>
+  </section>
+
+  <div id="workspace-screen" class="workspace" style="display:none;">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-icon">T</span>
+        <span>TaskFlow</span>
+      </div>
+
+      <div>
+        <div class="sidebar-label" style="margin-bottom:0.5rem;">
+          <span>Group Projects</span>
+          <button type="button" id="new-project-btn" class="btn btn-primary btn-sm" style="padding:0.2rem 0.55rem;">+ New</button>
+        </div>
+        <div id="project-list" class="project-list"></div>
+      </div>
+
+      <div>
+        <div class="sidebar-label" style="margin-bottom:0.5rem;">
+          <span>Notifications (<span id="unread-count">0</span>)</span>
+          <button type="button" id="mark-read-btn" style="background:none;border:0;color:#93c5fd;cursor:pointer;font-size:0.74rem;">Mark read</button>
+        </div>
+        <div id="notifications-list" class="notif-box"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div style="display:flex;align-items:center;gap:0.55rem;min-width:0;">
+          <div id="me-avatar" class="avatar">A</div>
+          <div style="min-width:0;">
+            <strong id="me-name" style="display:block;font-size:0.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">User</strong>
+            <small id="me-role" style="color:#94a3b8;font-size:0.74rem;"></small>
+          </div>
+        </div>
+        <button type="button" id="logout-btn" class="btn btn-outline btn-sm" style="background:transparent;color:#e2e8f0;border-color:rgba(255,255,255,0.2);">Sign Out</button>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <div>
+          <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+            <h1 id="project-title">Select a Project</h1>
+            <span id="ws-status" class="live-pill offline">Connecting...</span>
+          </div>
+          <p id="project-desc" style="margin:0.25rem 0 0;color:var(--ink-muted);font-size:0.9rem;"></p>
+        </div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+          <button type="button" id="invite-member-btn" class="btn btn-outline btn-sm">+ Invite Member</button>
+          <button type="button" id="add-column-btn" class="btn btn-outline btn-sm">+ Add Column</button>
+          <button type="button" id="new-task-btn" class="btn btn-primary btn-sm">+ New Task</button>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div style="display:flex;align-items:center;gap:0.65rem;flex-wrap:wrap;">
+          <span style="font-size:0.84rem;font-weight:600;color:var(--ink-muted);">Team:</span>
+          <div id="member-avatars" class="avatar-stack"></div>
+        </div>
+        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+          <input id="task-search" class="input" style="width:200px;" type="search" placeholder="Filter tasks..." />
+          <select id="filter-assignee" class="select" style="width:160px;">
+            <option value="">All Assignees</option>
+          </select>
+          <select id="filter-priority" class="select" style="width:140px;">
+            <option value="">All Priorities</option>
+            <option value="urgent">Urgent</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="board-scroll">
+        <div id="kanban-board" class="board"></div>
+      </div>
+    </main>
+  </div>
+
+  <div id="modal-backdrop" class="backdrop"></div>
+
+  <!-- New Project Modal -->
+  <div id="project-modal" class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <strong style="font-size:1.15rem;">Create Group Project</strong>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>&times;</button>
+    </div>
+    <form id="project-form" style="display:grid;gap:0.85rem;">
+      <input id="proj-name" class="input" required placeholder="Project Name (e.g. Mobile App Sprint)" />
+      <textarea id="proj-desc" class="textarea" rows="2" placeholder="Short project goal or description"></textarea>
+      <label style="display:flex;align-items:center;gap:0.75rem;font-size:0.9rem;">
+        <span>Board Accent Color</span>
+        <input id="proj-color" type="color" value="#2563eb" />
+      </label>
+      <div>
+        <label style="display:block;font-size:0.86rem;font-weight:600;margin-bottom:0.4rem;">Add Collaborators</label>
+        <div id="proj-members-picker" style="display:grid;gap:0.35rem;max-height:150px;overflow-y:auto;"></div>
+      </div>
+      <button type="submit" class="btn btn-primary">Create Project Board</button>
+    </form>
+  </div>
+
+  <!-- Invite Member Modal -->
+  <div id="invite-modal" class="modal" style="width:min(440px, calc(100% - 2rem));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <strong style="font-size:1.1rem;">Invite Collaborator</strong>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>&times;</button>
+    </div>
+    <form id="invite-form" style="display:grid;gap:0.8rem;">
+      <input id="invite-identifier" class="input" required placeholder="Teammate username or email (e.g. maya)" />
+      <div id="invite-suggestions" style="display:flex;flex-wrap:wrap;gap:0.35rem;"></div>
+      <button type="submit" class="btn btn-primary">Add to Project</button>
+    </form>
+  </div>
+
+  <!-- Add Column Modal -->
+  <div id="column-modal" class="modal" style="width:min(400px, calc(100% - 2rem));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <strong style="font-size:1.1rem;">Add Board Column</strong>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>&times;</button>
+    </div>
+    <form id="column-form" style="display:grid;gap:0.8rem;">
+      <input id="col-title" class="input" required placeholder="Column Title (e.g. QA Testing)" />
+      <button type="submit" class="btn btn-primary">Add Column</button>
+    </form>
+  </div>
+
+  <!-- Create Task Modal -->
+  <div id="create-task-modal" class="modal" style="width:min(480px, calc(100% - 2rem));">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <strong style="font-size:1.1rem;">Create Task Card</strong>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>&times;</button>
+    </div>
+    <form id="create-task-form" style="display:grid;gap:0.8rem;">
+      <input id="ct-title" class="input" required placeholder="Task title" />
+      <textarea id="ct-desc" class="textarea" rows="3" placeholder="Description & acceptance criteria"></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;">
+        <select id="ct-column" class="select"></select>
+        <select id="ct-priority" class="select">
+          <option value="low">Low Priority</option>
+          <option value="medium" selected>Medium Priority</option>
+          <option value="high">High Priority</option>
+          <option value="urgent">Urgent</option>
+        </select>
+        <select id="ct-assignee" class="select"></select>
+        <input id="ct-due" class="input" type="date" />
+      </div>
+      <button type="submit" class="btn btn-primary">Create Task</button>
+    </form>
+  </div>
+
+  <!-- Task Detail & Comments Modal -->
+  <div id="task-detail-modal" class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.85rem;">
+      <strong style="font-size:1.15rem;">Task Details & Discussion</strong>
+      <button type="button" class="btn btn-outline btn-sm" data-close-modal>&times;</button>
+    </div>
+    <form id="edit-task-form" style="display:grid;gap:0.75rem;">
+      <input id="et-title" class="input" required />
+      <textarea id="et-desc" class="textarea" rows="3" placeholder="Add task details..."></textarea>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.65rem;">
+        <label style="font-size:0.82rem;color:var(--ink-muted);">
+          Column / Status
+          <select id="et-column" class="select"></select>
+        </label>
+        <label style="font-size:0.82rem;color:var(--ink-muted);">
+          Assignee
+          <select id="et-assignee" class="select"></select>
+        </label>
+        <label style="font-size:0.82rem;color:var(--ink-muted);">
+          Priority
+          <select id="et-priority" class="select">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </label>
+        <label style="font-size:0.82rem;color:var(--ink-muted);">
+          Due Date
+          <input id="et-due" class="input" type="date" />
+        </label>
+      </div>
+      <div style="display:flex;justify-content:space-between;gap:0.6rem;margin-top:0.25rem;">
+        <button type="button" id="delete-task-btn" class="btn btn-danger btn-sm">Delete Task</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+      </div>
+    </form>
+
+    <hr style="border:0;border-top:1px solid var(--border);margin:1.1rem 0;" />
+
+    <div>
+      <strong style="display:block;margin-bottom:0.6rem;">Team Comments</strong>
+      <div id="task-comments-list" style="display:grid;gap:0.5rem;max-height:220px;overflow-y:auto;margin-bottom:0.75rem;"></div>
+      <form id="task-comment-form" style="display:flex;gap:0.5rem;">
+        <input id="task-comment-input" class="input" required maxlength="800" placeholder="Write a comment or @update for the team..." />
+        <button type="submit" class="btn btn-primary btn-sm">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
